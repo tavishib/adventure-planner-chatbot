@@ -1,12 +1,16 @@
-from openai import OpenAI
+import google.generativeai as genai
 import json
 import os
 
-# Setup OpenAI client
-api_key = os.environ.get("OPENAI_API_KEY")  # safer than hardcoding
-client = OpenAI(api_key=api_key)
+# --- 1. Setup Gemini Client ---
+# Safer than hardcoding the key
+api_key = os.environ.get("GOOGLE_API_KEY")
+genai.configure(api_key=api_key)
 
-# Load memory
+# Initialize the Generative Model
+model = genai.GenerativeModel('gemini-pro')
+
+# --- 2. Load Memory (No changes here) ---
 try:
     with open("memory.json", "r") as f:
         memory = json.load(f)
@@ -18,8 +22,9 @@ except FileNotFoundError:
         "activities": []
     }
 
-# AI response function
+# --- 3. AI Response Function (Modified for Gemini) ---
 def get_bot_response(user_input):
+    # The prompt structure remains the same
     prompt = f"""
 You are an AI Adventure Planner. You remember the user's preferences in memory.
 Memory: {memory}
@@ -29,13 +34,17 @@ Bot:
 - Offer activities, packing tips, or itinerary steps.
 - Update memory if user mentions preferences.
 """
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response.choices[0].message.content
+    try:
+        # Generate content using the Gemini model
+        response = model.generate_content(prompt)
+        # Return the text part of the response
+        return response.text
+    except Exception as e:
+        # Handle potential API errors gracefully
+        print(f"An error occurred: {e}")
+        return "Sorry, I'm having trouble connecting right now. Please try again later."
 
-# 4. Main loop (agent behavior)
+# --- 4. Main Loop (No changes here) ---
 def main():
     print("Adventure Planner AI Agent: Hi! I can help plan your trip. Type 'exit' to quit.\n")
     while True:
