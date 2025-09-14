@@ -23,26 +23,26 @@ except FileNotFoundError:
     }
 
 # --- 3. AI Response Function (Modified for Gemini) ---
-def get_bot_response(user_input):
-    # The prompt structure remains the same
-    prompt = f"""
+def get_bot_response(user_input, memory):
+    prompt = """
 You are an AI Adventure Planner. You remember the user's preferences in memory.
-Memory: {memory}
-User: {user_input}
+Memory: {memory_data}
+User: {input_text}
 Bot:
 - Respond naturally and give suggestions.
 - Offer activities, packing tips, or itinerary steps.
 - Update memory if user mentions preferences.
-"""
+""".format(memory_data=memory, input_text=user_input)
+
     try:
-        # Generate content using the Gemini model
         response = model.generate_content(prompt)
-        # Return the text part of the response
-        return response.text
+        if response and response.candidates:
+            return response.candidates[0].content.parts[0].text
+        else:
+            return "Sorry, I couldn't generate a response."
     except Exception as e:
-        # Handle potential API errors gracefully
-        print(f"An error occurred: {e}")
-        return "Sorry, I'm having trouble connecting right now. Please try again later."
+        print("An error occurred with the Gemini API:", e)
+        return "Sorry, I'm having trouble connecting to the AI right now."
 
 # --- 4. Main Loop (No changes here) ---
 def main():

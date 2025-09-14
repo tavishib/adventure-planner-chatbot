@@ -22,6 +22,7 @@
 <body>
     <header><h1>Adventure Planner Chatbot</h1></header>
     <div class="chat-container">
+        <div id="typingIndicator" class="message bot" style="display:none;">Adventure Planner is typing...</div>
         <div class="messages" id="chatMessages">
             <div class="message bot">Hi! I'm your Adventure Planner. Where would you like to go?</div>
         </div>
@@ -32,50 +33,88 @@
     </div>
 
     <script>
-        const chatMessages = document.getElementById('chatMessages');
-        const userInput = document.getElementById('userInput');
-        const API_URL = "http://127.0.0.1:5000/chat"; // The URL of your Python server
+const chatMessages = document.getElementById('chatMessages');
+const userInput = document.getElementById('userInput');
+const API_URL = "http://127.0.0.1:5000/chat"; // Flask backend
 
-        async function sendMessage() {
-            const message = userInput.value.trim();
+// --- Format bot text for better readability ---
+function formatBotText(text) {
+    // Bold
+    text = text.replace(/\*\*(.*?)\*\*/g, "<b>$1</b>");
+    // Italics
+    text = text.replace(/\*(.*?)\*/g, "<i>$1</i>");
+    // Bullet points (start of line)
+    text = text.replace(/^\* (.*)$/gm, "• $1");
+    return text;
+}
 
-            if (!message) return;
+// --- Add message to chat ---
+function addMessage(text, sender) {
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('message', sender);
+    // Use innerHTML and format markdown + newlines
+    messageDiv.innerHTML = formatBotText(text).replace(/\n/g, "<br>");
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
 
-            addMessage(message, 'user');
-            userInput.value = '';
+// --- Show typing dots ---
+function showTypingDots() {
+    const typingDiv = document.createElement('div');
+    typingDiv.classList.add('message', 'bot');
+    typingDiv.id = "typingDots";
+    typingDiv.textContent = "...";
+    chatMessages.appendChild(typingDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
 
-            try {
-                // Send the user's message to the Python backend
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ message: message }),
-                });
+// --- Remove typing dots ---
+function removeTypingDots() {
+    const typingDiv = document.getElementById('typingDots');
+    if (typingDiv) typingDiv.remove();
+}
 
-                if (!response.ok) {
-                    throw new Error('Network response was not ok.');
-                }
+// --- Add bot message with optional delay ---
+async function addBotMessage(text) {
+    const paragraphs = text.split("\n\n"); // Split by double newline
+    for (let para of paragraphs) {
+        addMessage(para, "bot");
+        await new Promise(r => setTimeout(r, 150)); // small delay for realism
+    }
+}
 
-                const data = await response.json();
-                const botResponse = data.reply; // Get the reply from the JSON
+// --- Send message ---
+async function sendMessage() {
+    const message = userInput.value.trim();
+    if (!message) return;
 
-                addMessage(botResponse, 'bot');
+    addMessage(message, 'user'); // Add user message
+    userInput.value = '';
 
-            } catch (error) {
-                console.error('Error fetching bot response:', error);
-                addMessage("Sorry, something went wrong. Please check the server.", 'bot');
-            }
-        }
+    showTypingDots(); // Show "typing"
 
-        function addMessage(text, sender) {
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message', sender);
-            messageDiv.textContent = text;
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll to the latest message
-        }
-    </script>
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ message: message }),
+        });
+
+        removeTypingDots();
+
+        if (!response.ok) throw new Error('Network response was not ok');
+
+        const data = await response.json();
+        const botResponse = data.reply;
+
+        await addBotMessage(botResponse);
+
+    } catch (error) {
+        removeTypingDots();
+        console.error('Error fetching bot response:', error);
+        addMessage("Sorry, something went wrong. Please check the server.", 'bot');
+    }
+}
+</script>
 </body>
 </html>
