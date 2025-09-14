@@ -2,15 +2,14 @@ import google.generativeai as genai
 import json
 import os
 
-# --- 1. Setup Gemini Client ---
-# Safer than hardcoding the key
+#safer than hardcoding
 api_key = os.environ.get("GOOGLE_API_KEY")
 genai.configure(api_key=api_key)
 
-# Initialize the Generative Model
+#initialize the model
 model = genai.GenerativeModel('gemini-pro')
 
-# --- 2. Load Memory (No changes here) ---
+#load memory
 try:
     with open("memory.json", "r") as f:
         memory = json.load(f)
@@ -22,7 +21,7 @@ except FileNotFoundError:
         "activities": []
     }
 
-# --- 3. AI Response Function (Modified for Gemini) ---
+#AI response function
 def get_bot_response(user_input, memory):
     prompt = """
 You are an AI Adventure Planner. You remember the user's preferences in memory.
@@ -44,7 +43,7 @@ Bot:
         print("An error occurred with the Gemini API:", e)
         return "Sorry, I'm having trouble connecting to the AI right now."
 
-# --- 4. Main Loop (No changes here) ---
+#main loop
 def main():
     print("Adventure Planner AI Agent: Hi! I can help plan your trip. Type 'exit' to quit.\n")
     while True:
@@ -53,18 +52,18 @@ def main():
             print("Bot: Have a great adventure! Goodbye!")
             break
 
-        # Simple memory extraction example
+        #memory extraction example
         if "destination" in user_input.lower():
             memory["destination"] = user_input
 
         if "budget" in user_input.lower():
             memory["budget"] = user_input
 
-        # Get AI response
+        #get response
         bot_reply = get_bot_response(user_input)
         print("Bot:", bot_reply)
 
-        # Save memory to file
+        #save memory to file
         with open("memory.json", "w") as f:
             json.dump(memory, f, indent=4)
 

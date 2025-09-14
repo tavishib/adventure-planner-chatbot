@@ -4,11 +4,10 @@ import google.generativeai as genai
 import json
 import os
 
-# --- 1. Setup Flask App and Gemini Client ---
 app = Flask(__name__)
-CORS(app)  # This enables communication between the frontend and backend
+CORS(app)  #communication between the frontend and backend
 
-# Configure Gemini API
+#Gemini API
 try:
     api_key = os.environ["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
@@ -16,10 +15,10 @@ except KeyError:
     print("GOOGLE_API_KEY environment variable not set.")
     exit()
 
-# Initialize the Generative Model
+#initialize model
 model = genai.GenerativeModel('gemini-2.5-flash')
 
-# --- 2. Memory Management ---
+#memory management
 MEMORY_FILE = "memory.json"
 
 def load_memory():
@@ -40,12 +39,12 @@ def save_memory(memory_data):
     with open(MEMORY_FILE, "w") as f:
         json.dump(memory_data, f, indent=4)
 
-# --- 3. Serve index.html ---
+#serve frontend
 @app.route("/")
 def index():
     return send_from_directory(".", "index.html")
 
-# --- 4. AI Response Function ---
+#AI response function
 def get_bot_response(user_input, memory):
     prompt = f"""
 You are an AI Adventure Planner. You remember the user's preferences in memory.
@@ -58,7 +57,7 @@ Bot:
 """
     try:
         response = model.generate_content(prompt)
-        # Safe extraction from Gemini SDK
+        #check if response is valid
         if response and response.candidates:
             return response.candidates[0].content.parts[0].text
         else:
@@ -67,7 +66,7 @@ Bot:
         print("An error occurred with the Gemini API:", e)
         return "Sorry, I'm having trouble connecting to the AI right now."
 
-# --- 5. Create the /chat API Endpoint ---
+#chat endpoint
 import re
 
 @app.route("/chat", methods=["POST"])
@@ -79,26 +78,26 @@ def chat():
     memory = load_memory()
     user_lower = user_input.lower()
 
-    # --- 1. Update memory intelligently ---
-    # Destination (first input)
+    #update memory based on user input
+    #destination
     if not memory["destination"]:
         memory["destination"] = user_input
 
-    # Budget: detect $ or numeric amount
+    #budget - look for $ or numerical values
     if not memory["budget"]:
         budget_match = re.search(r"\$\d+|\d+\s*(usd|dollars)?", user_input)
         if budget_match:
             memory["budget"] = budget_match.group()
 
-    # Duration: look for day(s), week(s), month(s)
+    #duration - look for days/weeks/months
     if not memory["duration"]:
         duration_match = re.search(r"\d+\s*(day|days|week|weeks|month|months)", user_lower)
         if duration_match:
             memory["duration"] = duration_match.group()
 
-    # Activities: store everything else
+    #store everything else
     if not memory["activities"]:
-        # Remove already captured budget/duration
+        #remove already captured budget/duration
         remaining = user_input
         if memory["budget"]:
             remaining = remaining.replace(memory["budget"], "")
@@ -110,7 +109,7 @@ def chat():
         else:
             memory["activities"] = [remaining.strip()] if remaining.strip() else []
 
-    # --- 2. Check for missing info ---
+    #check for missing info
     missing_info = []
     if not memory["budget"]:
         missing_info.append("budget")
@@ -119,16 +118,16 @@ def chat():
     if not memory["activities"]:
         missing_info.append("activities")
 
-    # --- 3. Prepare bot reply ---
+    #prompt for missing info
     if missing_info:
         bot_reply = f"Before we continue planning, could you tell me your {', '.join(missing_info)}?"
     else:
         bot_reply = get_bot_response(user_input, memory)
 
-    # --- 4. Save memory ---
+    #save updated memory
     save_memory(memory)
     return jsonify({"reply": bot_reply})
 
-# --- 6. Run the Flask App ---
+#run app
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

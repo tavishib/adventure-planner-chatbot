@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Adventure Planner Chatbot</title>
     <style>
-        /* Your CSS styles remain the same */
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f9; }
         header { background-color: #4CAF50; color: white; padding: 1rem; text-align: center; }
         .chat-container { max-width: 600px; margin: 2rem auto; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); padding: 1rem; }
@@ -35,30 +34,34 @@
     <script>
 const chatMessages = document.getElementById('chatMessages');
 const userInput = document.getElementById('userInput');
-const API_URL = "http://127.0.0.1:5000/chat"; // Flask backend
+const API_URL = "http://127.0.0.1:5000/chat";
 
-// --- Format bot text for better readability ---
+// track collected info
+let userMemory = {
+    destination: "",
+    budget: "",
+    duration: "",
+    activities: ""
+};
+
+//format bot text
 function formatBotText(text) {
-    // Bold
     text = text.replace(/\*\*(.*?)\*\*/g, "<b>$1</b>");
-    // Italics
     text = text.replace(/\*(.*?)\*/g, "<i>$1</i>");
-    // Bullet points (start of line)
     text = text.replace(/^\* (.*)$/gm, "• $1");
     return text;
 }
 
-// --- Add message to chat ---
+//add a message
 function addMessage(text, sender) {
     const messageDiv = document.createElement('div');
     messageDiv.classList.add('message', sender);
-    // Use innerHTML and format markdown + newlines
     messageDiv.innerHTML = formatBotText(text).replace(/\n/g, "<br>");
     chatMessages.appendChild(messageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// --- Show typing dots ---
+//show typing dots
 function showTypingDots() {
     const typingDiv = document.createElement('div');
     typingDiv.classList.add('message', 'bot');
@@ -68,30 +71,49 @@ function showTypingDots() {
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// --- Remove typing dots ---
+//remove typing dots
 function removeTypingDots() {
     const typingDiv = document.getElementById('typingDots');
     if (typingDiv) typingDiv.remove();
 }
 
-// --- Add bot message with optional delay ---
-async function addBotMessage(text) {
-    const paragraphs = text.split("\n\n"); // Split by double newline
-    for (let para of paragraphs) {
-        addMessage(para, "bot");
-        await new Promise(r => setTimeout(r, 150)); // small delay for realism
+//type messages by character
+async function typeMessage(text, sender, speed = 25) {
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('message', sender);
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    let i = 0;
+    while (i < text.length) {
+        messageDiv.innerHTML += formatBotText(text[i]).replace(/\n/g, "<br>");
+        i++;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        await new Promise(r => setTimeout(r, speed));
     }
 }
 
-// --- Send message ---
+//send bot messages with paragraph handling
+async function addBotMessage(text) {
+    const paragraphs = text.split("\n\n"); 
+    for (let para of paragraphs) {
+        await typeMessage(para, "bot", 15); //adjust speed as needed
+        await new Promise(r => setTimeout(r, 200)); //pause between paragraphs
+    }
+}
+
+//send message to backend
 async function sendMessage() {
     const message = userInput.value.trim();
     if (!message) return;
 
-    addMessage(message, 'user'); // Add user message
+    addMessage(message, 'user');
     userInput.value = '';
 
-    showTypingDots(); // Show "typing"
+    //update local memory if user provides info
+    updateMemory(message);
+
+    showTypingDots();
 
     try {
         const response = await fetch(API_URL, {
@@ -109,12 +131,42 @@ async function sendMessage() {
 
         await addBotMessage(botResponse);
 
+        //auto-prompt for missing info
+        autoPromptMissingInfo();
+
     } catch (error) {
         removeTypingDots();
         console.error('Error fetching bot response:', error);
         addMessage("Sorry, something went wrong. Please check the server.", 'bot');
     }
 }
+
+//check and auto-prompt for missing info
+function autoPromptMissingInfo() {
+    if (!userMemory.destination) {
+        addBotMessage("Where would you like to go?");
+    } else if (!userMemory.budget) {
+        addBotMessage("What's your budget for this trip?");
+    } else if (!userMemory.duration) {
+        addBotMessage("How many days will your adventure last?");
+    } else if (!userMemory.activities) {
+        addBotMessage("What activities are you interested in?");
+    }
+}
+
+//extract info from user messages
+function updateMemory(message) {
+    if (!userMemory.destination && /italy|france|japan|spain|greece/i.test(message)) {
+        userMemory.destination = message;
+    } else if (!userMemory.budget && /\$\d+/.test(message)) {
+        userMemory.budget = message.match(/\$\d+/)[0];
+    } else if (!userMemory.duration && /\d+\s*(days|day|weeks|week)/i.test(message)) {
+        userMemory.duration = message.match(/\d+\s*(days|day|weeks|week)/i)[0];
+    } else if (!userMemory.activities && /(ski|hike|kayak|tour|sightseeing)/i.test(message)) {
+        userMemory.activities = message;
+    }
+}
 </script>
+
 </body>
 </html>
